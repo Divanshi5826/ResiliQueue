@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  mongodb:
+    image: mongo:5.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/resiliqueue
+      - REDIS_URL=redis://redis:6379
+      - PORT=3000
+    depends_on:
+      - redis
+      - mongodb
+
+  worker_a:
+    build: .
+    command: node workers/processor.js
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/resiliqueue
+      - REDIS_URL=redis://redis:6379
+      - WORKER_ID=Alpha
+    depends_on:
+      - redis
+      - mongodb
+
+  worker_b:
+    build: .
+    command: node workers/processor.js
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/resiliqueue
+      - REDIS_URL=redis://redis:6379
+      - WORKER_ID=Beta
+    depends_on:
+      - redis
+      - mongodb
+
+volumes:
+  redis_data:
+  mongo_data:

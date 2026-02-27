@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ResiliQueue Dashboard | Distributed Task Broker</title>
+    <!-- Modern clean typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* CSS Variables & Theme */
+        :root {
+            --bg-base: #0b0f19;
+            --panel-bg: rgba(20, 25, 35, 0.6);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --card-hover: rgba(255, 255, 255, 0.04);
+            --font-family: 'Inter', sans-serif;
+        }
+
+        /* Basic Reset */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-family);
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+            /* Subtle animated background gradient */
+            background-image:
+                radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+            background-attachment: fixed;
+            animation: bgDrift 20s infinite alternate linear;
+        }
+
+        @keyframes bgDrift {
+            0% {
+                background-position: 0% 0%;
+            }
+
+            100% {
+                background-position: 100% 100%;
+            }
+        }
+
+        /* Top Navigation */
+        .top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 32px;
+            background: rgba(11, 15, 25, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--panel-border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            font-size: 1.15rem;
+            letter-spacing: 0.5px;
+        }
+
+        .brand-icon {
+            width: 34px;
+            height: 34px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+        }
+
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--success);
+            box-shadow: 0 0 8px var(--success);
+            animation: pulse-dot 2s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0% {
+                transform: scale(0.95);
+                opacity: 0.8;
+            }
+
+            50% {
+                transform: scale(1.3);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(0.95);
+                opacity: 0.8;
+            }
+        }
+
+        /* Layout Container */
+        .dashboard-container {
+            padding: 32px;
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Glassmorphism Panel base class */
+        .glass-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Metrics Layout */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .metric-card {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+            background: var(--card-hover);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value-container {
+            font-size: 2.8rem;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .metric-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* Progress Bars */
+        .progress-bars-wrapper {
+            margin-top: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .progress-row-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .progress-load {
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+        }
+
+        .progress-fail {
+            background: linear-gradient(90deg, var(--warning), var(--danger));
+        }
+
+        /* Workers Status Panel */
+        .workers-panel {
+            padding: 20px 28px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            align-items: center;
+        }
+
+        .workers-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-right: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .worker-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 10px 20px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            transition: all 0.4s ease;
+        }
+
+        .worker-icon {
+            font-size: 1.3rem;
+            opacity: 0.5;
+            transition: all 0.3s;
+        }
+
+        .worker-status-text {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        /* Worker active animations */
+        .worker-item.busy {
+            border-color: rgba(59, 130, 246, 0.4);
+            background: rgba(59, 130, 246, 0.08);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+        }
+
+        .worker-item.busy .worker-icon {
+            opacity: 1;
+            transform: scale(1.1);
+            animation: float 2s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(0px) scale(1.1);
+            }
+
+            50% {
+                transform: translateY(-3px) scale(1.1);
+            }
+
+            100% {
+                transform: translateY(0px) scale(1.1);
+            }
+        }
+
+        /* Refresh Indicator */
+        .refresh-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.03);
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+
+        .refresh-icon {
+            font-size: 0.9rem;
+            transform-origin: center;
+        }
+
+        .refreshing .refresh-icon {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Main Content Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 0 4px;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            letter-spacing: 0.3px;
+        }
+
+        .badge-count {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* Task List Container */
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 550px;
+            overflow-y: auto;
+            padding-right: 8px;
+            padding-bottom: 10px;
+        }
+
+        /* Custom Scrollbar */
+        .task-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .task-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .task-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+        }
+
+        .task-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        /* Task Cards */
+        .task-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(15px) scale(0.98);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .task-card:hover {
+            background: rgba(255, 255, 255, 0.04);
+            transform: translateX(4px);
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Colored Left Border */
+        .task-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .task-card:hover::before {
+            width: 8px;
+        }
+
+        /* Priority Colors */
+        .priority-high::before {
+            background: var(--danger);
+            box-shadow: 0 0 15px var(--danger);
+        }
+
+        .priority-medium::before {
+            background: var(--warning);
+        }
+
+        .priority-low::before {
+            background: var(--success);
+        }
+
+        .task-card.dead {
+            opacity: 0.85;
+            filter: grayscale(0.6);
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .task-card.dead:hover {
+            opacity: 1;
+            filter: grayscale(0);
+        }
+
+        .task-card.dead::before {
+            background: var(--text-muted);
+            box-shadow: none;
+        }
+
+        /* Task Header Group */
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .task-id {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            letter-spacing: 0.5px;
+        }
+
+        /* Status Badge */
+        .status-badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 5px 12px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-badge::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .status-queued {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .status-queued::before {
+            background: #60a5fa;
+        }
+
+        .status-processing {
+            background: rgba(139, 92, 246, 0.15);
+            color: #a78bfa;
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.2);
+        }
+
+        .status-processing::before {
+            background: #a78bfa;
+            box-shadow: 0 0 8px #a78bfa;
+            animation: pulse-dot 1.5s infinite;
+        }
+
+        .status-completed {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .status-completed::before {
+            background: #34d399;
+        }
+
+        .status-failed {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .status-failed::before {
+            background: #f87171;
+        }
+
+        /* Task Body Row */
+        .task-body {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            font-size: 0.95rem;
+        }
+
+        .task-info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .info-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+
+        .info-value {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-main);
+        }
+
+        .risk-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .risk-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        /* Task Footer Row */
+        .task-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 6px;
+            padding-top: 14px;
+            border-top: 1px dashed rgba(255, 255, 255, 0.1);
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .worker-assignment {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 4px 10px;
+            border-radius: 6px;
+        }
+
+        .retry-visual {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .retry-dots {
+            display: flex;
+            gap: 5px;
+        }
+
+        .retry-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+            transition: all 0.3s;
+        }
+
+        .retry-dot.used {
+            background: var(--warning);
+            box-shadow: 0 0 8px var(--warning);
+        }
+
+        .retry-dot.failed-final {
+            background: var(--danger);
+            box-shadow: 0 0 8px var(--danger);
+        }
+
+        /* Empty States */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 50px 20px;
+            text-align: center;
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px dashed rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            height: 100%;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            opacity: 0.4;
+            filter: grayscale(1);
+        }
+
+        .empty-text {
+            font-size: 1.05rem;
+            font-weight: 500;
+        }
+
+        /* Loading Shimmer Animation */
+        .shimmer-active {
+            background: #2a3548;
+            background-image: linear-gradient(to right, #2a3548 0%, #3a475c 20%, #2a3548 40%, #2a3548 100%);
+            background-repeat: no-repeat;
+            background-size: 800px 100%;
+            animation-duration: 1.5s;
+            animation-fill-mode: forwards;
+            animation-iteration-count: infinite;
+            animation-name: placeholderShimmer;
+            animation-timing-function: linear;
+            border-radius: 6px;
+            color: transparent !important;
+        }
+
+        @keyframes placeholderShimmer {
+            0% {
+                background-position: -468px 0;
+            }
+
+            100% {
+                background-position: 468px 0;
+            }
+        }
+
+        .metric-skeleton {
+            width: 80px;
+            height: 42px;
+            display: inline-block;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Top Navigation Block -->
+    <nav class="top-nav">
+        <div class="brand">
+            <div class="brand-icon">⚡</div>
+            ResiliQueue Broker
+        </div>
+        <div class="system-status">
+            <div class="status-dot"></div>
+            System Online
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="dashboard-container">
+
+        <!-- Metrics Summary -->
+        <div class="metrics-grid">
+            <div class="glass-panel metric-card">
+                <div class="metric-header">
+                    <span>Total Processed</span>
+                    <span style="font-size: 1.3rem;">✅</span>
+                </div>
+                <div class="metric-value-container">
+                    <span id="val-processed" class="shimmer-active metric-skeleton">0</span>
+                </div>
+                <div class="metric-subtitle">Successfully completed tasks</div>
+            </div>
+
+            <div class="glass-panel metric-card">
+                <div class="metric-header">
+                    <span>Total Failed</span>
+                    <span style="font-size: 1.3rem;">⚠️</span>
+                </div>
+                <div class="metric-value-container">
+                    <span id="val-failed" class="shimmer-active metric-skeleton">0</span>
+                </div>
+                <div class="metric-subtitle">Tasks moved to dead letter or retrying</div>
+            </div>
+
+            <div class="glass-panel metric-card">
+                <div class="metric-header">
+                    <span>System Health</span>
+                    <span style="font-size: 1.3rem;">📊</span>
+                </div>
+                <div class="progress-bars-wrapper">
+                    <!-- Queue Load Progress -->
+                    <div>
+                        <div class="progress-row-header">
+                            <span>Queue Load</span>
+                            <span id="load-text">0%</span>
+                        </div>
+                        <div class="progress-container">
+                            <div id="bar-load" class="progress-bar progress-load" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Failure Rate Progress -->
+                    <div style="margin-top: 8px;">
+                        <div class="progress-row-header">
+                            <span>Failure Rate</span>
+                            <span id="fail-text">0%</span>
+                        </div>
+                        <div class="progress-container">
+                            <div id="bar-fail" class="progress-bar progress-fail" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Worker Subsystem State && Controls -->
+        <div class="glass-panel workers-panel">
+            <div class="workers-title">
+                <span>⚙️</span> Worker Node Status
+            </div>
+
+            <button id="btn-simulate" onclick="simulateTraffic()"
+                style="background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: transform 0.2s; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);">
+                🚀 Simulate Trading Peak
+            </button>
+
+            <div class="worker-item" id="worker-A">
+                <div class="worker-icon">🤖</div>
+                <div class="worker-status-text">Worker A: <span id="worker-A-state"
+                        style="color:var(--text-muted)">Idle</span></div>
+            </div>
+
+            <div class="worker-item" id="worker-B">
+                <div class="worker-icon">🤖</div>
+                <div class="worker-status-text">Worker B: <span id="worker-B-state"
+                        style="color:var(--text-muted)">Idle</span></div>
+            </div>
+
+            <div style="margin-left: auto;" class="refresh-indicator" id="refresh-indicator">
+                <span class="refresh-icon">🔄</span> Auto-syncing
+            </div>
+        </div>
+
+        <!-- Task Queues Details -->
+        <div class="main-grid">
+
+            <!-- Active & Recent Processed Tasks -->
+            <div class="glass-panel" style="padding: 24px;">
+                <div class="section-header">
+                    <div class="section-title">
+                        Active & Recent Tasks
+                        <span class="badge-count" id="count-active">0</span>
+                    </div>
+                </div>
+                <div class="task-list" id="list-active">
+                    <div class="empty-state">
+                        <div class="empty-icon">📭</div>
+                        <div class="empty-text">No active tasks in queue</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dead Letter Failures -->
+            <div class="glass-panel" style="padding: 24px;">
+                <div class="section-header">
+                    <div class="section-title" style="color: var(--danger)">
+                        Dead Letter Queue
+                        <span class="badge-count" id="count-dead"
+                            style="background: rgba(239, 68, 68, 0.15); color: var(--danger)">0</span>
+                    </div>
+                </div>
+                <div class="task-list" id="list-dead">
+                    <div class="empty-state">
+                        <div class="empty-icon">✨</div>
+                        <div class="empty-text">Dead letter queue is empty</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        // --- State Management ---
+        const frontendTasks = new Map();
+        let metricTotalProcessed = 0;
+        let metricTotalFailed = 0;
+        let currentWorkers = { A: 'idle', B: 'idle' };
+        let isInitialLoad = true;
+
+        const MAX_QUEUE_UI_CAPACITY = 20; // for the 100% queue load visual calc
+
+        // --- Helpers ---
+        function getPriorityInfo(priority) {
+            if (priority >= 8) return { class: 'priority-high', label: 'High', color: 'var(--danger)' };
+            if (priority >= 4) return { class: 'priority-medium', label: 'Medium', color: 'var(--warning)' };
+            return { class: 'priority-low', label: 'Low', color: 'var(--success)' };
+        }
+
+        function getRiskInfo(riskScore) {
+            if (riskScore >= 0.7) return { label: 'High Risk', color: 'var(--danger)' };
+            if (riskScore >= 0.3) return { label: 'Medium Risk', color: 'var(--warning)' };
+            return { label: 'Low Risk', color: 'var(--success)' };
+        }
+
+        function animateNumberCount(element, start, end, duration) {
+            if (start === end) {
+                element.innerHTML = end;
+                return;
+            }
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                // easeOutQuad
+                const easeOut = progress * (2 - progress);
+                element.innerHTML = Math.floor(easeOut * (end - start) + start);
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                } else {
+                    element.innerHTML = end;
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        function removeShimmers() {
+            const pEl = document.getElementById('val-processed');
+            if (pEl.classList.contains('shimmer-active')) {
+                pEl.classList.remove('shimmer-active', 'metric-skeleton');
+            }
+            const fEl = document.getElementById('val-failed');
+            if (fEl.classList.contains('shimmer-active')) {
+                fEl.classList.remove('shimmer-active', 'metric-skeleton');
+            }
+        }
+
+        // --- Core Sync Logic ---
+
+        // Update task state by inspecting the diff between memory and API backend data
+        function syncFrontendState(apiData) {
+            const now = Date.now();
+            const apiQueueIds = new Set(apiData.queue.map(t => t.id));
+            const apiDeadIds = new Set(apiData.deadLetterQueue.map(t => t.id));
+
+            // 1. Process disappeared tasks (either dead or processing)
+            frontendTasks.forEach((task, id) => {
+                if (task.uiStatus === 'Queued' && !apiQueueIds.has(id)) {
+                    if (apiDeadIds.has(id)) {
+                        task.uiStatus = 'Dead Letter';
+                    } else {
+                        // Task was picked up by a worker
+                        task.uiStatus = 'Processing';
+                        task.processingStart = now;
+
+                        // Give it an aesthetic worker assignment to create a dynamic GUI
+                        if (currentWorkers.A === 'idle') { currentWorkers.A = 'busy'; task.uiWorker = 'A'; }
+                        else if (currentWorkers.B === 'idle') { currentWorkers.B = 'busy'; task.uiWorker = 'B'; }
+                        else task.uiWorker = 'Unknown';
+                    }
+                }
+            });
+
+            // 2. Add or update items currently in the API queue
+            apiData.queue.forEach(t => {
+                if (frontendTasks.has(t.id)) {
+                    const existing = frontendTasks.get(t.id);
+                    existing.retries = t.retries; // update retries if it failed and came back
+                    existing.uiStatus = 'Queued';
+                } else {
+                    frontendTasks.set(t.id, { ...t, uiStatus: 'Queued', addedAt: now, uiWorker: null });
+                }
+            });
+
+            // 3. Mark newly dead items
+            apiData.deadLetterQueue.forEach(t => {
+                if (frontendTasks.has(t.id)) {
+                    frontendTasks.get(t.id).uiStatus = 'Dead Letter';
+                    frontendTasks.get(t.id).retries = t.retries;
+                } else {
+                    frontendTasks.set(t.id, { ...t, uiStatus: 'Dead Letter', addedAt: now });
+                }
+            });
+
+            // 4. Simulate job completion for processing items after a duration
+            // (The backend waits ~3-6 seconds. We mock complete in 5s)
+            frontendTasks.forEach((task, id) => {
+                if (task.uiStatus === 'Processing' && (now - task.processingStart) > 5000) {
+                    task.uiStatus = 'Completed';
+                    task.completedAt = now;
+                    // Free the visual worker
+                    if (task.uiWorker === 'A') currentWorkers.A = 'idle';
+                    if (task.uiWorker === 'B') currentWorkers.B = 'idle';
+                }
+            });
+
+            // 5. Keep the workers moving if there's load backing up
+            if (apiData.queue.length > 0) {
+                if (currentWorkers.A === 'idle' && Math.random() > 0.4) currentWorkers.A = 'busy';
+                if (currentWorkers.B === 'idle' && Math.random() > 0.4) currentWorkers.B = 'busy';
+            } else if (apiData.queue.length === 0) {
+                const processingCount = Array.from(frontendTasks.values()).filter(t => t.uiStatus === 'Processing').length;
+                if (processingCount === 0) {
+                    currentWorkers.A = 'idle';
+                    currentWorkers.B = 'idle';
+                }
+            }
+
+            // 6. Memory cleanup of old completed tasks
+            frontendTasks.forEach((task, id) => {
+                if (task.uiStatus === 'Completed' && (now - task.completedAt) > 12000) {
+                    frontendTasks.delete(id);
+                }
+            });
+        }
+
+        // --- View Render ---
+
+        function renderDashboard(apiData) {
+
+            // 1. Counters
+            removeShimmers();
+            if (metricTotalProcessed !== apiData.metrics.totalProcessed || isInitialLoad) {
+                animateNumberCount(document.getElementById('val-processed'), metricTotalProcessed, apiData.metrics.totalProcessed, 1000);
+                metricTotalProcessed = apiData.metrics.totalProcessed;
+            }
+            if (metricTotalFailed !== apiData.metrics.totalFailed || isInitialLoad) {
+                animateNumberCount(document.getElementById('val-failed'), metricTotalFailed, apiData.metrics.totalFailed, 1000);
+                metricTotalFailed = apiData.metrics.totalFailed;
+            }
+
+            // 2. Progress Bars
+            const queueLoad = Math.min((apiData.queue.length / MAX_QUEUE_UI_CAPACITY) * 100, 100);
+            document.getElementById('bar-load').style.width = queueLoad + '%';
+            document.getElementById('load-text').innerText = Math.round(queueLoad) + '%';
+
+            let failRate = 0;
+            const totalActivity = metricTotalProcessed + metricTotalFailed;
+            if (totalActivity > 0) failRate = (metricTotalFailed / totalActivity) * 100;
+            document.getElementById('bar-fail').style.width = failRate + '%';
+            document.getElementById('fail-text').innerText = failRate.toFixed(1) + '%';
+
+            // 3. Update Workers
+            renderWorkerState('A', currentWorkers.A);
+            renderWorkerState('B', currentWorkers.B);
+
+            // 4. Group and Render Lists
+            const allTasksArr = Array.from(frontendTasks.values());
+            const activeList = allTasksArr.filter(t => t.uiStatus !== 'Dead Letter').sort((a, b) => b.addedAt - a.addedAt);
+            const deadList = allTasksArr.filter(t => t.uiStatus === 'Dead Letter').sort((a, b) => b.addedAt - a.addedAt);
+
+            document.getElementById('count-active').innerText = activeList.length;
+            document.getElementById('count-dead').innerText = deadList.length;
+
+            renderListDom(document.getElementById('list-active'), activeList, false);
+            renderListDom(document.getElementById('list-dead'), deadList, true);
+
+            isInitialLoad = false;
+        }
+
+        function renderWorkerState(workerId, state) {
+            const el = document.getElementById(`worker-${workerId}`);
+            const textEl = document.getElementById(`worker-${workerId}-state`);
+            if (state === 'busy') {
+                el.classList.add('busy');
+                textEl.innerText = 'Processing tasks...';
+                textEl.style.color = 'var(--accent-blue)';
+            } else {
+                el.classList.remove('busy');
+                textEl.innerText = 'Idle';
+                textEl.style.color = 'var(--text-muted)';
+            }
+        }
+
+        function createTaskCardHtml(task, priorityInfo, riskInfo, statusClass, isDeadLetter) {
+            let retriesHtml = '';
+            for (let i = 0; i < 3; i++) {
+                if (i < task.retries) retriesHtml += `<div class="retry-dot ${isDeadLetter ? 'failed-final' : 'used'}"></div>`;
+                else retriesHtml += '<div class="retry-dot"></div>';
+            }
+
+            const workerDisplay = task.uiWorker ? `Worker Node ${task.uiWorker}` : 'Waiting assignment...';
+            const shortId = task.id.split('-')[0];
+
+            return `
+                <div class="task-header">
+                    <span class="task-id">ID: ${shortId}</span>
+                    <span class="status-badge ${statusClass}">${task.uiStatus}</span>
+                </div>
+                <div class="task-body">
+                    <div class="task-info-item">
+                        <span class="info-label">Domain</span>
+                        <span class="info-value" style="text-transform: capitalize">${task.type}</span>
+                    </div>
+                    <div class="task-info-item">
+                        <span class="info-label">Priority Level</span>
+                        <span class="info-value" style="color: ${priorityInfo.color}">
+                            ${priorityInfo.label} (${task.priority})
+                        </span>
+                    </div>
+                    <div class="task-info-item">
+                        <span class="info-label">Failure Risk</span>
+                        <span class="risk-pill">
+                            <div class="risk-dot" style="background: ${riskInfo.color}"></div>
+                            ${riskInfo.label}
+                        </span>
+                    </div>
+                </div>
+                <div class="task-footer">
+                    <div class="worker-assignment">
+                        <span>🤖</span> ${workerDisplay}
+                    </div>
+                    <div class="retry-visual">
+                        <span style="font-size:0.75rem;">Retry Attempts</span>
+                        <div class="retry-dots">
+                            ${retriesHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render with simple DOM diffing to preserve transition animations and hover states
+        function renderListDom(container, tasks, isDeadLetter) {
+            if (tasks.length === 0) {
+                if (!container.querySelector('.empty-state')) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">${isDeadLetter ? '⚠️' : '📭'}</div>
+                            <div class="empty-text">${isDeadLetter ? 'Dead letter queue is empty' : 'No active tasks in queue'}</div>
+                        </div>
+                    `;
+                }
+                return;
+            }
+
+            // Remove empty state if present
+            const emptyState = container.querySelector('.empty-state');
+            if (emptyState) emptyState.remove();
+
+            const existingIds = new Set();
+
+            tasks.forEach(task => {
+                existingIds.add(task.id);
+                let card = document.getElementById(`task-${task.id}`);
+                const isNew = !card;
+
+                if (isNew) {
+                    card = document.createElement('div');
+                    card.id = `task-${task.id}`;
+                    card.dataset.id = task.id;
+                }
+
+                const priorityInfo = getPriorityInfo(task.priority);
+                const riskInfo = getRiskInfo(task.riskScore);
+
+                let statusClass = 'status-queued';
+                if (task.uiStatus === 'Processing') statusClass = 'status-processing';
+                if (task.uiStatus === 'Completed') statusClass = 'status-completed';
+                if (task.uiStatus === 'Dead Letter') statusClass = 'status-failed';
+
+                // update classname to reflect priority cleanly
+                card.className = `task-card ${priorityInfo.class} ${isDeadLetter ? 'dead' : ''}`;
+
+                // Write standard content
+                card.innerHTML = createTaskCardHtml(task, priorityInfo, riskInfo, statusClass, isDeadLetter);
+
+                // Preserve order by appending
+                container.appendChild(card);
+            });
+
+            // Remove elements no longer in the list
+            Array.from(container.children).forEach(el => {
+                if (el.dataset.id && !existingIds.has(el.dataset.id)) {
+                    el.remove();
+                }
+            });
+        }
+
+
+        // --- User Simulation Action ---
+        async function simulateTraffic() {
+            const btn = document.getElementById('btn-simulate');
+            btn.innerHTML = 'Injecting...';
+            btn.style.transform = 'scale(0.95)';
+
+            // Generate 5 random financial tasks to blast the queue
+            for (let i = 0; i < 5; i++) {
+                const isHighVolume = Math.random() > 0.7;
+                const isDerivative = Math.random() > 0.8;
+
+                const payload = {
+                    tradeId: 'TX' + Math.floor(Math.random() * 100000),
+                    volume: isHighVolume ? Math.floor(Math.random() * 500000) + 100000 : Math.floor(Math.random() * 10000),
+                    assetClass: isDerivative ? 'DERIVATIVE' : 'EQUITY',
+                    urgent: Math.random() > 0.9
+                };
+
+                fetch('/api/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).catch(e => console.error(e));
+
+                // Slight stagger
+                await new Promise(r => setTimeout(r, 100));
+            }
+
+            setTimeout(() => {
+                btn.innerHTML = '🚀 Simulate Trading Peak';
+                btn.style.transform = 'scale(1)';
+            }, 600);
+        }
+
+        // --- Refresh Loop ---
+
+        async function fetchCycle() {
+            const refreshInd = document.getElementById('refresh-indicator');
+            refreshInd.classList.add('refreshing');
+
+            try {
+                const response = await fetch('/status');
+                const data = await response.json();
+                syncFrontendState(data);
+                renderDashboard(data);
+            } catch (error) {
+                console.error("Dashboard failed to sync:", error);
+            }
+
+            setTimeout(() => refreshInd.classList.remove('refreshing'), 500);
+        }
+
+        // Start 
+        fetchCycle();
+        setInterval(fetchCycle, 2000);
+
+    </script>
+</body>
+
+</html>
